@@ -189,11 +189,12 @@ void CyberGear::process_can_message()
             {
                 if (_motors[i].active && _motors[i].can_id == motor_can_id)
                 {
-                    // ステータスデータのデコード
-                    uint16_t raw_position = (buf[1] << 8) | buf[0];
-                    uint16_t raw_speed = (buf[3] << 8) | buf[2];
-                    uint16_t raw_torque = (buf[5] << 8) | buf[4];
-                    uint16_t raw_temperature = (buf[7] << 8) | buf[6];
+                    // ステータスデータのデコード（元の実装に合わせてバイト順を調整）
+                    // buf[0]=MSB, buf[1]=LSB という順序
+                    uint16_t raw_position = buf[1] | (buf[0] << 8);
+                    uint16_t raw_speed = buf[3] | (buf[2] << 8);
+                    uint16_t raw_torque = buf[5] | (buf[4] << 8);
+                    uint16_t raw_temperature = buf[7] | (buf[6] << 8);
 
                     _motors[i].position = uint_to_float(raw_position, P_MIN, P_MAX);
                     _motors[i].speed = uint_to_float(raw_speed, V_MIN, V_MAX);
@@ -280,7 +281,9 @@ uint16_t CyberGear::float_to_uint(float x, float x_min, float x_max)
 
 void CyberGear::send_can_package(uint8_t can_id, uint8_t cmd_id, const uint8_t *data, uint8_t len)
 {
-    // CAN IDの構築: (cmd_id << 24) | (master_id << 8) | motor_can_id
+    // CAN IDの構築: (cmd_id << 24) | (master_id << 8) | motor_can_id | 拡張IDフラグ
+    // 元の実装: (cmd_id << 27) | (option << 11) | (can_id << 3) | 0b100
+    // MCP_CANで29ビット拡張IDとして送信する場合、そのまま使用
     uint32_t msg_id = ((uint32_t)cmd_id << 24) | ((uint32_t)_master_can_id << 8) | can_id;
 
     // 拡張フレーム(Extended)で送信
@@ -305,11 +308,11 @@ void CyberGear::send_can_float_package(uint8_t can_id, uint16_t addr, float valu
     uint32_t float_bits;
     memcpy(&float_bits, &value, sizeof(float));
 
-    // リトルエンディアンでデータ配列に格納
-    data[4] = (float_bits >> 0) & 0xFF;
-    data[5] = (float_bits >> 8) & 0xFF;
-    data[6] = (float_bits >> 16) & 0xFF;
-    data[7] = (float_bits >> 24) & 0xFF;
+    // ビッグエンディアン形式でデータ配列に格納（CyberGear仕様）
+    data[4] = (float_bits >> 24) & 0xFF;
+    data[5] = (float_bits >> 16) & 0xFF;
+    data[6] = (float_bits >> 8) & 0xFF;
+    data[7] = (float_bits >> 0) & 0xFF;
 
     send_can_package(can_id, CMD_RAM_WRITE, data, 8);
 }
