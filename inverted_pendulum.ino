@@ -12,8 +12,9 @@
 MCP_CAN CAN(CAN_CS_PIN);
 
 // --- CyberGear用の設定 ---
-uint8_t MOTOR_ID = 0x01;  // ターゲットのモーターID (購入時のデフォルトは0x7Fが多いです)
-uint8_t MASTER_ID = 0x00; // ESP32側のID (0x00などでOK)
+uint8_t MOTOR_ID_1 = 0x01; // 1つ目のモーターID
+uint8_t MOTOR_ID_2 = 0x02; // 2つ目のモーターID
+uint8_t MASTER_ID = 0x00;  // ESP32側のID (0x00などでOK)
 
 // CyberGearクラスのインスタンス
 CyberGear *cybergear;
@@ -43,34 +44,48 @@ void setup()
   // CyberGearクラスを使用した初期化
   cybergear = new CyberGear(&CAN, MASTER_ID);
 
-  // モーターを登録（モーター番号0にCAN ID 0x01のモーターを登録）
-  cybergear->addMotor(0, MOTOR_ID);
+  // モーター1を登録（モーター番号0にCAN ID 0x01のモーターを登録）
+  cybergear->addMotor(0, MOTOR_ID_1);
+  // モーター2を登録（モーター番号1にCAN ID 0x02のモーターを登録）
+  cybergear->addMotor(1, MOTOR_ID_2);
 
-  // モーターを初期化（速度モード）
+  // モーター1を初期化（速度モード）
   cybergear->init_motor(0, MODE_SPEED);
   delay(100);
+  // モーター2を初期化（速度モード）
+  cybergear->init_motor(1, MODE_SPEED);
+  delay(100);
 
-  // ゼロ位置を設定
+  // モーター1のゼロ位置を設定
   cybergear->set_mechpos_zero(0);
   delay(100);
+  // モーター2のゼロ位置を設定
+  cybergear->set_mechpos_zero(1);
+  delay(100);
 
-  // 速度制限を設定（rad/s）
+  // モーター1の速度制限を設定（rad/s）
   cybergear->set_limit_speed(0, 10.0);
   delay(100);
-
-  // モーターを有効化
-  cybergear->enable_motor(0);
+  // モーター2の速度制限を設定（rad/s）
+  cybergear->set_limit_speed(1, 10.0);
   delay(100);
 
-  Serial.println("CyberGear Motor Initialized (Speed Mode)!");
+  // モーター1を有効化
+  cybergear->enable_motor(0);
+  delay(100);
+  // モーター2を有効化
+  cybergear->enable_motor(1);
+  delay(100);
+
+  Serial.println("CyberGear Motors Initialized (Speed Mode)!");
 }
 
 // === 調整可能なパラメータ ===
-const float SINE_WAVE_PERIOD_SEC = 5.0;                 // sin波の周期（秒）
-const float MAX_SPEED_AMPLITUDE = 5.0;                  // 最大速度の振幅（rad/s）
-const unsigned long SPEED_UPDATE_INTERVAL_US = 5000;   // 速度更新間隔（マイクロ秒）10ms=10000us
-const unsigned long STATUS_REQUEST_INTERVAL_US = 5000; // ステータス要求間隔（マイクロ秒）10ms=10000us
-const unsigned long LOOP_DELAY_US = 1000;               // loop最後のdelay（マイクロ秒）1ms=1000us
+const float SINE_WAVE_PERIOD_SEC = 5.0;                // sin波の周期（秒）
+const float MAX_SPEED_AMPLITUDE = 5.0;                 // 最大速度の振幅（rad/s）
+const unsigned long SPEED_UPDATE_INTERVAL_US = 7500;   // 速度更新間隔（マイクロ秒）10ms=10000us
+const unsigned long STATUS_REQUEST_INTERVAL_US = 7500; // ステータス要求間隔（マイクロ秒）10ms=10000us
+const unsigned long LOOP_DELAY_US = 1000;              // loop最後のdelay（マイクロ秒）1ms=1000us
 
 void loop()
 {
@@ -82,21 +97,27 @@ void loop()
   // 受信したCANメッセージを処理
   cybergear->process_can_message();
 
-  // 指定間隔ごとにsin波で速度を更新
+  // 指定間隔ごとにsin波/cos波で速度を更新
   if (currentTime - lastSpeedUpdateTime >= SPEED_UPDATE_INTERVAL_US)
   {
     lastSpeedUpdateTime = currentTime;
 
-    // 現在時刻からsin波の位相を計算
+    // 現在時刻から位相を計算
     float timeInSeconds = millis() / 1000.0;
     float phase = (2.0 * PI * timeInSeconds) / SINE_WAVE_PERIOD_SEC;
 
-    // sin波で目標速度を計算
-    float targetSpeed = MAX_SPEED_AMPLITUDE * sin(phase);
+    // モーター1: sin波で目標速度を計算
+    float targetSpeed1 = MAX_SPEED_AMPLITUDE * sin(phase);
+    // モーター2: cos波で目標速度を計算
+    float targetSpeed2 = MAX_SPEED_AMPLITUDE * cos(phase);
 
     // 目標速度を設定
-    cybergear->set_speed(0, targetSpeed);
-    Serial.print(targetSpeed, 3);
+    cybergear->set_speed(0, targetSpeed1);
+    cybergear->set_speed(1, targetSpeed2);
+
+    Serial.print(targetSpeed1, 3);
+    Serial.print(", ");
+    Serial.print(targetSpeed2, 3);
     Serial.print(", ");
   }
 
@@ -105,14 +126,19 @@ void loop()
   {
     lastStatusTime = currentTime;
 
-    // ステータスを要求
+    // モーター1のステータスを要求
     cybergear->request_status(0);
-
-    // 少し待ってからステータスを表示
     delayMicroseconds(250);
     cybergear->process_can_message();
 
-    Serial.println(cybergear->getSpeed(0), 3);
+    // モーター2のステータスを要求
+    cybergear->request_status(1);
+    delayMicroseconds(250);
+    cybergear->process_can_message();
+
+    Serial.print(cybergear->getSpeed(0), 3);
+    Serial.print(", ");
+    Serial.println(cybergear->getSpeed(1), 3);
   }
 
   delayMicroseconds(LOOP_DELAY_US);
