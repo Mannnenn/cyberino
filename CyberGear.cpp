@@ -308,11 +308,11 @@ void CyberGear::send_can_float_package(uint8_t can_id, uint16_t addr, float valu
     uint32_t float_bits;
     memcpy(&float_bits, &value, sizeof(float));
 
-    // ビッグエンディアン形式でデータ配列に格納（CyberGear仕様）
-    data[4] = (float_bits >> 24) & 0xFF;
-    data[5] = (float_bits >> 16) & 0xFF;
-    data[6] = (float_bits >> 8) & 0xFF;
-    data[7] = (float_bits >> 0) & 0xFF;
+    // リトルエンディアン形式でデータ配列に格納（元の実装と同じ）
+    data[4] = (float_bits >> 0) & 0xFF;
+    data[5] = (float_bits >> 8) & 0xFF;
+    data[6] = (float_bits >> 16) & 0xFF;
+    data[7] = (float_bits >> 24) & 0xFF;
 
     send_can_package(can_id, CMD_RAM_WRITE, data, 8);
 }

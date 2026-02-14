@@ -46,8 +46,8 @@ void setup()
   // モーターを登録（モーター番号0にCAN ID 0x01のモーターを登録）
   cybergear->addMotor(0, MOTOR_ID);
 
-  // モーターを初期化（ポジションモード）
-  cybergear->init_motor(0, MODE_POSITION);
+  // モーターを初期化（速度モード）
+  cybergear->init_motor(0, MODE_SPEED);
   delay(100);
 
   // ゼロ位置を設定
@@ -55,20 +55,20 @@ void setup()
   delay(100);
 
   // 速度制限を設定（rad/s）
-  cybergear->set_limit_speed(0, 5.0);
+  cybergear->set_limit_speed(0, 10.0);
   delay(100);
 
   // モーターを有効化
   cybergear->enable_motor(0);
   delay(100);
 
-  Serial.println("CyberGear Motor Initialized!");
+  Serial.println("CyberGear Motor Initialized (Speed Mode)!");
 }
 
 void loop()
 {
   static unsigned long lastTime = 0;
-  static float targetPosition = 0.0;
+  static float targetSpeed = 5.0;
   static bool direction = true;
 
   unsigned long currentTime = millis();
@@ -76,40 +76,33 @@ void loop()
   // 受信したCANメッセージを処理
   cybergear->process_can_message();
 
-  // 3秒ごとに位置を変更
+  // 3秒ごとに速度を反転
   if (currentTime - lastTime >= 3000)
   {
     lastTime = currentTime;
 
-    // 位置を-3.0から+3.0 rad の間で往復させる
+    // 速度を反転させる（-5.0 rad/s ⇔ +5.0 rad/s）
     if (direction)
     {
-      targetPosition += 3.0;
-      if (targetPosition >= 3.0)
-      {
-        targetPosition = 3.0;
-        direction = false;
-      }
+      targetSpeed = -5.0;
+      direction = false;
     }
     else
     {
-      targetPosition -= 3.0;
-      if (targetPosition <= -3.0)
-      {
-        targetPosition = -3.0;
-        direction = true;
-      }
+      targetSpeed = 5.0;
+      direction = true;
     }
 
-    // 目標位置を設定
-    cybergear->set_position(0, targetPosition);
-    Serial.print("Target Position: ");
-    Serial.println(targetPosition, 3);
+    // 目標速度を設定
+    cybergear->set_speed(0, targetSpeed);
+    Serial.print("Target Speed: ");
+    Serial.print(targetSpeed, 3);
+    Serial.println(" rad/s");
   }
 
   // 100msごとにステータスを要求して表示
   static unsigned long lastStatusTime = 0;
-  if (currentTime - lastStatusTime >= 100)
+  if (currentTime - lastStatusTime >= 1000)
   {
     lastStatusTime = currentTime;
 
