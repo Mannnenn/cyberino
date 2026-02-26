@@ -3,6 +3,7 @@
 #include "CyberGear.h"
 #include "ICM42688.h"
 #include "madwick_1axis.h"
+#include "PID.h"
 
 // ESPr Developer S3 向けのピン設定
 #define SPI_SCK 12
@@ -20,6 +21,10 @@ uint8_t MASTER_ID = 0x00;  // ESP32側のID (0x00などでOK)
 
 // CyberGearクラスのインスタンス
 CyberGear *cybergear;
+
+// カスケードPIDコントローラーのインスタンス
+PID velocityPI(0.1f, 0.01f, 0.0f, 0.0f, -0.785f, 0.785f); // 入力速度のPI制御（目標速度 - 実測速度）用，出力目標角度制限は±45度（0.785 rad/s）程度を想定
+PID posturePD(20.0f, 0.0f, 0.25f, 0.0f, -30.0f, 30.0f);   // 姿勢制御用のPDコントローラー（目標角度 - 実測角度）用，直接IMUの角度微分をD項に使用するため不完全微分は不要、出力は速度指令なので±30 rad/s程度を想定
 
 // ICM42688センサーのインスタンス
 ICM42688 IMU(SPI, IMU_CS_PIN);
@@ -55,8 +60,7 @@ void setup()
   cybergear->addMotor(0, MOTOR_ID_1);
 
   // モーターを初期化（速度モード）
-  // cybergear->init_motor(0, MODE_SPEED);
-  cybergear->init_motor(0, MODE_POSITION);
+  cybergear->init_motor(0, MODE_SPEED);
   delay(100);
 
   // モーターのゼロ位置を設定
@@ -91,7 +95,7 @@ void setup()
 }
 
 // === 調整可能なパラメータ ===
-const float SINE_WAVE_PERIOD_SEC = 10.25;                 // sin波の周期（秒）
+const float SINE_WAVE_PERIOD_SEC = 10.25;               // sin波の周期（秒）
 const float MAX_SPEED_AMPLITUDE = 0.5;                  // 最大速度の振幅（rad/s）
 const float INITIAL_WAIT_SEC = 5.0;                     // 制御開始前の待ち時間（秒）
 const unsigned long SPEED_UPDATE_INTERVAL_US = 7500;    // 速度更新間隔（マイクロ秒）10ms=10000us
@@ -107,6 +111,8 @@ void loop()
   static unsigned long lastIMUTime = 0;
   static unsigned long lastPrintTime = 0;
   static bool motorEnabled = false;
+  static float target_angle = 0.0f;
+  static float target_speed = 0.0f;
 
   unsigned long currentTime = micros();
 
@@ -126,20 +132,13 @@ void loop()
   {
     lastSpeedUpdateTime = currentTime;
 
-    // 現在時刻から位相を計算
-    float timeInSeconds = millis() / 1000.0;
-    float phase = (2.0 * PI * timeInSeconds) / SINE_WAVE_PERIOD_SEC;
-
-    // モーター1: sin波で目標速度を計算
-    float targetSpeed1 = MAX_SPEED_AMPLITUDE * sin(phase);
-    // モーター2: cos波で目標速度を計算
-    float targetSpeed2 = MAX_SPEED_AMPLITUDE * cos(phase);
+    target_angle = velocityPI.update_pi(0.0f, cybergear->getSpeed(0), SPEED_UPDATE_INTERVAL_US / 1000000.0f);                                         // 目標速度は0、実測速度はモーターから取得
+    target_speed = posturePD.update_pd_measurement_deriv(target_angle, madwickFilter.getAngle(), -IMU.gyrZ(), SPEED_UPDATE_INTERVAL_US / 1000000.0f); // 目標角度 - 実測角度を入力、ジャイロの角速度をD項に使用
 
     // 目標速度を設定 (最初のN秒間は指令を出さない)
     if (motorEnabled)
     {
-      // cybergear->set_speed(0, targetSpeed1);
-      cybergear->set_position(0, targetSpeed1); // 位置制御モードの場合は位置を設定
+      cybergear->set_speed(0, target_speed);
     }
   }
 
@@ -169,11 +168,15 @@ void loop()
   if (currentTime - lastPrintTime >= PRINT_INTERVAL_US)
   {
     lastPrintTime = currentTime;
-    Serial.print(cybergear->getPosition(0), 3);
-    Serial.print(", ");
+    // angle, angular_velocity, motor_speed, target_angle, target_speed
     Serial.print(madwickFilter.getAngle(), 3);
     Serial.print(", ");
-    Serial.println(madwickFilter.getAngle() - cybergear->getPosition(0), 3);
+    Serial.print(-IMU.gyrZ(), 3);
+    Serial.print(", ");
+    Serial.print(cybergear->getSpeed(0), 3);
+    Serial.print(", ");
+    Serial.print(target_angle, 3);
+    Serial.print(", ");
+    Serial.println(target_speed, 3);
   }
-
 }
