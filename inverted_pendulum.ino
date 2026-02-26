@@ -95,8 +95,6 @@ void setup()
 }
 
 // === 調整可能なパラメータ ===
-const float SINE_WAVE_PERIOD_SEC = 10.25;               // sin波の周期（秒）
-const float MAX_SPEED_AMPLITUDE = 0.5;                  // 最大速度の振幅（rad/s）
 const float INITIAL_WAIT_SEC = 5.0;                     // 制御開始前の待ち時間（秒）
 const unsigned long SPEED_UPDATE_INTERVAL_US = 7500;    // 速度更新間隔（マイクロ秒）10ms=10000us
 const unsigned long STATUS_REQUEST_INTERVAL_US = 10000; // ステータス要求間隔（マイクロ秒）10ms=10000us
