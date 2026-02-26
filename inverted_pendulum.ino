@@ -23,7 +23,7 @@ CyberGear *cybergear;
 
 // ICM42688センサーのインスタンス
 ICM42688 IMU(SPI, IMU_CS_PIN);
-Madgwick1Axis madwickFilter(0.9f); // フィルタゲインを0.1に設定
+Madgwick1Axis madwickFilter(0.5f); // フィルタゲインを0.1に設定
 
 void setup()
 {
@@ -153,9 +153,9 @@ void loop()
     IMU.getAGT();
 
     // Madgwickフィルタを更新
-    madwickFilter.update(IMU.accX(), IMU.accY(), IMU.gyrZ(), currentTime);
+    madwickFilter.update(-IMU.accX(), -IMU.accY(), -IMU.gyrZ(), currentTime);
 
-    Serial.println(-madwickFilter.getAngle(), 3);
+    Serial.println(madwickFilter.getAngle(), 3);
   }
 
   delayMicroseconds(LOOP_DELAY_US);

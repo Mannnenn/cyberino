@@ -33,12 +33,14 @@ void Madgwick1Axis::update(float ax, float ay, float gz, unsigned long currentTi
     ax_norm = ax / norm;
     ay_norm = ay / norm;
 
+    float grad = ay_norm * cos(theta) - ax_norm * sin(theta);
+
     // ジャイロセンサーの角速度をラジアンに変換
     theta_dot = gz * (M_PI / 180.0f);
 
     // Madgwickフィルタの更新（相補フィルタ）
     // 加速度から推定される角度との誤差を補正しながら積分
-    float angle_dot = theta_dot + beta * (ay_norm * cos(theta) - ax_norm * sin(theta));
+    float angle_dot = theta_dot - beta * grad;
     this->theta = theta + angle_dot * deltaTime;
 }
 
