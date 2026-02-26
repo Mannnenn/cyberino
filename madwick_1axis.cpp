@@ -3,8 +3,8 @@
 #include "madwick_1axis.h"
 #include <math.h>
 
-Madgwick1Axis::Madgwick1Axis(float beta)
-    : beta(beta), theta(0), ax_norm(0), ay_norm(0), theta_dot(0), lastUpdateTime(0)
+Madgwick1Axis::Madgwick1Axis(float beta, float accel_scale, float min_norm, float max_norm)
+    : beta(beta), accel_scale(accel_scale), theta(0), min_norm(min_norm), max_norm(max_norm), ax_norm(0), ay_norm(0), theta_dot(0), lastUpdateTime(0)
 {
 }
 
@@ -25,22 +25,35 @@ void Madgwick1Axis::update(float ax, float ay, float gz, unsigned long currentTi
     if (deltaTime <= 0 || deltaTime > 1.0f)
         return;
 
-    // 加速度センサーの値を正規化
-    float norm = sqrt(ax * ax + ay * ay);
-    if (norm == 0)
-        return; // ゼロ除算を防止
-
-    ax_norm = ax / norm;
-    ay_norm = ay / norm;
-
-    float grad = ay_norm * cos(theta) - ax_norm * sin(theta);
+    // 重力加速度を1.0に合わせるためのスケール補正
+    ax *= accel_scale;
+    ay *= accel_scale;
 
     // ジャイロセンサーの角速度をラジアンに変換
     theta_dot = gz * (M_PI / 180.0f);
 
-    // Madgwickフィルタの更新（相補フィルタ）
-    // 加速度から推定される角度との誤差を補正しながら積分
-    float angle_dot = theta_dot - beta * grad;
+    // 加速度センサーのノルムを計算
+    float norm = sqrt(ax * ax + ay * ay);
+
+    float angle_dot;
+
+    // 加速度のノルムが設定範囲内の時のみ、加速度による補正（傾斜計としての利用）を行う
+    // 回転中心から離れている場合、遠心力が加わってノルムが1Gから外れるため
+    if (norm >= min_norm && norm <= max_norm)
+    {
+        ax_norm = ax / norm;
+        ay_norm = ay / norm;
+
+        float grad = ay_norm * cos(theta) - ax_norm * sin(theta);
+        angle_dot = theta_dot - beta * grad;
+    }
+    else
+    {
+        // ノルムが範囲外（激しい動きや自由落下など）の時はジャイロのみで積分
+        angle_dot = theta_dot;
+    }
+
+    // Madgwickフィルタの更新
     this->theta = theta + angle_dot * deltaTime;
 }
 

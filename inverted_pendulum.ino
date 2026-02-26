@@ -23,7 +23,7 @@ CyberGear *cybergear;
 
 // ICM42688センサーのインスタンス
 ICM42688 IMU(SPI, IMU_CS_PIN);
-Madgwick1Axis madwickFilter(0.5f); // フィルタゲインを0.1に設定
+Madgwick1Axis madwickFilter(0.3f, 1.0f / 0.9935f); // フィルタゲイン0.3, 加速度スケール補正
 
 void setup()
 {
@@ -55,7 +55,8 @@ void setup()
   cybergear->addMotor(0, MOTOR_ID_1);
 
   // モーターを初期化（速度モード）
-  cybergear->init_motor(0, MODE_SPEED);
+  // cybergear->init_motor(0, MODE_SPEED);
+  cybergear->init_motor(0, MODE_POSITION);
   delay(100);
 
   // モーターのゼロ位置を設定
@@ -63,14 +64,10 @@ void setup()
   delay(100);
 
   // モーターの速度制限を設定（rad/s）
-  cybergear->set_limit_speed(0, 10.0);
+  cybergear->set_limit_speed(0, 30.0);
   delay(100);
 
-  // モーターを有効化
-  cybergear->enable_motor(0);
-  delay(100);
-
-  Serial.println("CyberGear Motors Initialized (Speed Mode)!");
+  // Serial.println("CyberGear Motors Initialized!"); // enable_motorはloop内で開始後N秒で行う
 
   // IMUの初期化
   int status = IMU.begin();
@@ -85,29 +82,41 @@ void setup()
   }
 
   // IMUの設定
-  IMU.setAccelFS(ICM42688::gpm2);    // 加速度計のフルスケール: +/-2G
-  IMU.setGyroFS(ICM42688::dps62_5);  // ジャイロのフルスケール: +/-62.5 deg/s
-  IMU.setAccelODR(ICM42688::odr100); // 加速度計のサンプルレート: 100Hz
-  IMU.setGyroODR(ICM42688::odr100);  // ジャイロのサンプルレート: 100Hz
+  IMU.setAccelFS(ICM42688::gpm2);   // 加速度計のフルスケール: +/-2G
+  IMU.setGyroFS(ICM42688::dps250);  // ジャイロのフルスケール: +/-62.5 deg/s
+  IMU.setAccelODR(ICM42688::odr1k); // 加速度計のサンプルレート: 100Hz
+  IMU.setGyroODR(ICM42688::odr1k);  // ジャイロのサンプルレート: 100Hz
 
   Serial.println("IMU Initialized!");
 }
 
 // === 調整可能なパラメータ ===
-const float SINE_WAVE_PERIOD_SEC = 5.0;                 // sin波の周期（秒）
-const float MAX_SPEED_AMPLITUDE = 5.0;                  // 最大速度の振幅（rad/s）
+const float SINE_WAVE_PERIOD_SEC = 10.25;                 // sin波の周期（秒）
+const float MAX_SPEED_AMPLITUDE = 0.5;                  // 最大速度の振幅（rad/s）
+const float INITIAL_WAIT_SEC = 5.0;                     // 制御開始前の待ち時間（秒）
 const unsigned long SPEED_UPDATE_INTERVAL_US = 7500;    // 速度更新間隔（マイクロ秒）10ms=10000us
 const unsigned long STATUS_REQUEST_INTERVAL_US = 10000; // ステータス要求間隔（マイクロ秒）10ms=10000us
-const unsigned long IMU_UPDATE_INTERVAL_US = 10000;     // IMU読み取り間隔（マイクロ秒）10ms=10000us
-const unsigned long LOOP_DELAY_US = 1000;               // loop最後のdelay（マイクロ秒）1ms=1000us
+const unsigned long IMU_UPDATE_INTERVAL_US = 1000;      // IMU読み取り間隔（マイクロ秒）10ms=10000us
+const unsigned long LOOP_DELAY_US = 10;                 // loop最後のdelay（マイクロ秒）1ms=1000us
+const unsigned long PRINT_INTERVAL_US = 10000;          // データ出力間隔（マイクロ秒）10ms=10000us
 
 void loop()
 {
   static unsigned long lastSpeedUpdateTime = 0;
   static unsigned long lastStatusTime = 0;
   static unsigned long lastIMUTime = 0;
+  static unsigned long lastPrintTime = 0;
+  static bool motorEnabled = false;
 
   unsigned long currentTime = micros();
+
+  // 指定時間を経過したらモーターを有効化する
+  if (!motorEnabled && millis() >= INITIAL_WAIT_SEC * 1000.0)
+  {
+    cybergear->enable_motor(0);
+    motorEnabled = true;
+    Serial.println("Motor Enabled!");
+  }
 
   // 受信したCANメッセージを処理
   cybergear->process_can_message();
@@ -126,8 +135,12 @@ void loop()
     // モーター2: cos波で目標速度を計算
     float targetSpeed2 = MAX_SPEED_AMPLITUDE * cos(phase);
 
-    // 目標速度を設定
-    cybergear->set_speed(0, targetSpeed1);
+    // 目標速度を設定 (最初のN秒間は指令を出さない)
+    if (motorEnabled)
+    {
+      // cybergear->set_speed(0, targetSpeed1);
+      cybergear->set_position(0, targetSpeed1); // 位置制御モードの場合は位置を設定
+    }
   }
 
   // 指定間隔ごとにステータスを要求して表示
@@ -139,9 +152,6 @@ void loop()
     cybergear->request_status(0);
     delayMicroseconds(250);
     cybergear->process_can_message();
-
-    Serial.print(cybergear->getPosition(0), 3);
-    Serial.print(", ");
   }
 
   // 指定間隔ごとにIMUデータを読み取って表示
@@ -154,9 +164,16 @@ void loop()
 
     // Madgwickフィルタを更新
     madwickFilter.update(-IMU.accX(), -IMU.accY(), -IMU.gyrZ(), currentTime);
-
-    Serial.println(madwickFilter.getAngle(), 3);
   }
 
-  delayMicroseconds(LOOP_DELAY_US);
+  if (currentTime - lastPrintTime >= PRINT_INTERVAL_US)
+  {
+    lastPrintTime = currentTime;
+    Serial.print(cybergear->getPosition(0), 3);
+    Serial.print(", ");
+    Serial.print(madwickFilter.getAngle(), 3);
+    Serial.print(", ");
+    Serial.println(madwickFilter.getAngle() - cybergear->getPosition(0), 3);
+  }
+
 }
