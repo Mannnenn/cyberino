@@ -1,0 +1,68 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<mujoco model="InvertPendulam">
+  <compiler angle="radian" />
+
+  <asset>
+    <mesh name="InvertPendualm_mainBody_CoG_origin_binary" content_type="model/stl"
+      file="../meshes/InvertPendualm_mainBody_CoG_origin_binary.stl" />
+    <mesh name="InvertPendulam_wheel_left_center_origin_binary" content_type="model/stl"
+      file="../meshes/InvertPendulam_wheel_left_center_origin_binary.stl" />
+    <mesh name="InvertPendulam_wheel_right_center_origin_binary" content_type="model/stl"
+      file="../meshes/InvertPendulam_wheel_right_center_origin_binary.stl" />
+  </asset>
+
+  <worldbody>
+
+    <body name="base_link">
+      <freejoint />
+      <inertial pos="0 0 0" mass="0" diaginertia="0.01 0.01 0.01" />
+
+
+      <body name="InvertPendualm_mainBody_CoG_origin" quat="0.707388 0 0 0.706825">
+        <inertial pos="0 0 0" quat="0.707106 -0.000303441 0.000289314 0.707108" mass="1.1515"
+          diaginertia="0.0121364 0.0071955 0.00569466" />
+        <geom type="mesh" rgba="1 0.969 0 1" mesh="InvertPendualm_mainBody_CoG_origin_binary" />
+
+
+        <body name="InvertPendulam_wheel_left_center_origin" pos="0 0 -0.0605">
+          <inertial pos="0 0 0" mass="0.0636012" diaginertia="0.00014101 7.681e-05 7.681e-05" />
+          <joint
+            name="InvertPendualm_mainBody_CoG_origin_to_InvertPendulam_wheel_left_center_origin"
+            pos="0 0 0" axis="1 0 0" actuatorfrcrange="-12 12" frictionloss="0.1" damping="0.01" />
+          <geom type="mesh" rgba="1 0 0.016 1" mesh="InvertPendulam_wheel_left_center_origin_binary"
+            friction="0.5 0.005 0.0001" />
+
+        </body>
+        <body name="InvertPendulam_wheel_right_center_origin" pos="0 0 -0.0605">
+          <inertial pos="0 0 0" mass="0.0636012" diaginertia="0.00014101 7.681e-05 7.681e-05" />
+          <joint
+            name="InvertPendualm_mainBody_CoG_origin_to_InvertPendulam_wheel_right_center_origin"
+            pos="0 0 0" axis="1 0 0" actuatorfrcrange="-12 12" frictionloss="0.1" damping="0.01" />
+          <geom type="mesh" rgba="0.031 0 1 1"
+            mesh="InvertPendulam_wheel_right_center_origin_binary" friction="0.5 0.005 0.0001" />
+        </body>
+
+
+      </body>
+
+
+    </body>
+
+    <geom type="plane" size="20 20 0.1" pos="0 0 -0.115" rgba="0.0 0.5 0.0 1" />
+
+  </worldbody>
+
+  <actuator>
+
+    <motor name="left_wheel_motor"
+      joint="InvertPendualm_mainBody_CoG_origin_to_InvertPendulam_wheel_left_center_origin" gear="1"
+      ctrlrange="-12 12" ctrllimited="true" />
+
+    <motor name="right_wheel_motor"
+      joint="InvertPendualm_mainBody_CoG_origin_to_InvertPendulam_wheel_right_center_origin"
+      gear="1" ctrlrange="-12 12" ctrllimited="true" />
+
+  </actuator>
+
+
+</mujoco>
