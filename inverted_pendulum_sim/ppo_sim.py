@@ -4,13 +4,12 @@ from typing import List
 import gymnasium as gym
 import matplotlib.pyplot as plt
 import numpy as np
+from generated_eq1_func import func_eq1
+from generated_eq2_func import func_eq2
 from gymnasium import spaces
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.env_checker import check_env
-
-from generated_eq1_func import func_eq1
-from generated_eq2_func import func_eq2
 
 
 class TrainingMetricsCallback:
@@ -366,8 +365,9 @@ if __name__ == "__main__":
     model = PPO(
         "MlpPolicy",
         env,
+        policy_kwargs=dict(net_arch=dict(pi=[16, 16], vf=[16, 16])),
         verbose=1,
-        learning_rate=1e-4,  # 3e-4 から下げて慎重に学習させる
+        learning_rate=3e-4,  # 3e-4 から下げて慎重に学習させる
         n_steps=2048,
         batch_size=128,  # 64 から増やして安定化
         n_epochs=10,
