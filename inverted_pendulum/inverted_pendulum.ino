@@ -28,8 +28,7 @@ PID posturePD(20.0f, 0.0f, 0.25f, 0.0f, -30.0f, 30.0f);   // 姿勢制御用のP
 
 // ICM42688センサーのインスタンス
 ICM42688 IMU(SPI, IMU_CS_PIN);
-// Madgwick1Axis madwickFilter(0.3f, 1.0f / 0.9935f); // フィルタゲイン0.3, 加速度スケール補正
-Madgwick1Axis madwickFilter(0.0f);
+Madgwick1Axis madwickFilter(0.3f, 1.0f / 0.9935f); // フィルタゲイン0.3, 加速度スケール補正
 
 void setup()
 {
@@ -137,7 +136,7 @@ void loop()
     // 目標速度を設定 (最初のN秒間は指令を出さない)
     if (motorEnabled)
     {
-      // cybergear->set_speed(0, target_speed);
+      cybergear->set_speed(0, target_speed);
     }
   }
 
@@ -161,27 +160,24 @@ void loop()
     IMU.getAGT();
 
     // Madgwickフィルタを更新
-    madwickFilter.update(-IMU.accY(), -IMU.accZ(), -IMU.gyrX(), currentTime);
+    madwickFilter.update(IMU.accZ(), IMU.accX(), -IMU.gyrY(), currentTime);
   }
 
   if (currentTime - lastPrintTime >= PRINT_INTERVAL_US)
   {
     lastPrintTime = currentTime;
     // 重力加速度から角度を計算する
-    float angle_from_acc = atan2(-IMU.accZ(), -IMU.accY());
 
     // angle, angular_velocity, motor_speed, target_angle, target_speed
     Serial.print(madwickFilter.getAngle(), 3);
     Serial.print(", ");
-    Serial.print(angle_from_acc, 3);
+    Serial.print(-IMU.gyrY(), 3);
     Serial.print(", ");
-    Serial.print(-IMU.gyrX(), 3);
+    Serial.print(cybergear->getSpeed(0), 3);
     Serial.print(", ");
-    // Serial.print(cybergear->getSpeed(0), 3);
-    // Serial.print(", ");
-    // Serial.print(target_angle, 3);
-    // Serial.print(", ");
-    // Serial.print(target_speed, 3);
+    Serial.print(target_angle, 3);
+    Serial.print(", ");
+    Serial.print(target_speed, 3);
     Serial.println();
   }
 }
