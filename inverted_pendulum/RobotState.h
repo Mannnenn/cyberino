@@ -26,11 +26,12 @@ public:
     void updateWheel(float wheel_speed, float dt);
 
     /**
-     * @brief 振子角速度を更新する
+     * @brief 振子角速度・ヨーレイトを更新する
      *
      * @param pendulum_angular_velocity 振子角速度 [rad/s]
+     * @param yaw_rate                  ヨーレイト [rad/s]（省略時は 0）
      */
-    void updatePendulumAngularVelocity(float pendulum_angular_velocity);
+    void updatePendulumAngularVelocity(float pendulum_angular_velocity, float yaw_rate = 0.0f);
 
     /**
      * @brief 振子角度を更新する
@@ -49,6 +50,7 @@ public:
     float getWheelAngle() const { return wheel_angle_; }
     float getPendulumAngle() const { return pendulum_angle_; }
     float getPendulumAngularVelocity() const { return pendulum_angular_velocity_; }
+    float getYawRate() const { return yaw_rate_; }
 
 private:
     float wheel_speed_;               ///< ホイール速度 [rad/s]
@@ -57,4 +59,5 @@ private:
     float pendulum_angular_velocity_; ///< 振子角速度 [rad/s]
 
     float prev_wheel_speed_; ///< 台形積分用：前回のホイール速度 [rad/s]
+    float yaw_rate_;         ///< ヨーレイト [rad/s]
 };

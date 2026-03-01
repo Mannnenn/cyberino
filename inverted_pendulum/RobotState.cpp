@@ -5,7 +5,8 @@ RobotState::RobotState()
       wheel_angle_(0.0f),
       pendulum_angle_(0.0f),
       pendulum_angular_velocity_(0.0f),
-      prev_wheel_speed_(0.0f)
+      prev_wheel_speed_(0.0f),
+      yaw_rate_(0.0f)
 {
 }
 
@@ -17,9 +18,10 @@ void RobotState::updateWheel(float wheel_speed, float dt)
     wheel_speed_ = wheel_speed;
 }
 
-void RobotState::updatePendulumAngularVelocity(float pendulum_angular_velocity)
+void RobotState::updatePendulumAngularVelocity(float pendulum_angular_velocity, float yaw_rate)
 {
     pendulum_angular_velocity_ = pendulum_angular_velocity;
+    yaw_rate_ = yaw_rate;
 }
 
 void RobotState::updatePendulumAngle(float pendulum_angle)
@@ -34,4 +36,5 @@ void RobotState::reset()
     pendulum_angle_ = 0.0f;
     pendulum_angular_velocity_ = 0.0f;
     prev_wheel_speed_ = 0.0f;
+    yaw_rate_ = 0.0f;
 }
