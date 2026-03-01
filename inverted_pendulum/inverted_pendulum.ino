@@ -158,9 +158,6 @@ void loop()
   {
     lastSpeedUpdateTime = currentTime;
 
-    forward_velocity_command = FORWARD_COMMAND_SCALE * forward_command / WHEEL_RADIUS;           // 前後の指令を-1.0から1.0の範囲にマッピングしたものを速度指令に変換し，車輪半径で割って角速度指令に変換
-    turn_velocity_command = TURN_COMMAND_SCALE * turn_command * WHEEL_BASE / (2 * WHEEL_RADIUS); // 左右の指令を-1.0から1.0の範囲にマッピングしたものを速度指令に変換し，車輪半径で割って角速度指令に変換
-
     target_angle = velocityPI.update_pi(forward_velocity_command, robotState.getWheelSpeed(), SPEED_UPDATE_INTERVAL_US / 1000000.0f);                                                  // 目標速度は0、実測速度はモーターから取得
     target_speed = posturePD.update_pd_measurement_deriv(target_angle, robotState.getPendulumAngle(), robotState.getPendulumAngularVelocity(), SPEED_UPDATE_INTERVAL_US / 1000000.0f); // 目標角度 - 実測角度を入力、ジャイロの角速度をD項に使用
 
@@ -217,6 +214,9 @@ void loop()
     forward_command = static_cast<float>(map(data.ch[2], 368, 1680, -1000, 1000)) / 1000.0f; // 前後の指令を-1.0から1.0の範囲にマッピング
     turn_command = static_cast<float>(map(data.ch[0], 368, 1680, -1000, 1000)) / 1000.0f;    // 左右の指令を-1.0から1.0の範囲にマッピング
     enabled_motor_command = (data.ch[4] > 1000);                                             // チャンネル4の値が1000を超えていればモーターを有効化する
+
+    forward_velocity_command = FORWARD_COMMAND_SCALE * forward_command / WHEEL_RADIUS;           // 前後の指令を-1.0から1.0の範囲にマッピングしたものを速度指令に変換し，車輪半径で割って角速度指令に変換
+    turn_velocity_command = TURN_COMMAND_SCALE * turn_command * WHEEL_BASE / (2 * WHEEL_RADIUS); // 左右の指令を-1.0から1.0の範囲にマッピングしたものを速度指令に変換し，車輪半径で割って角速度指令に変換
   }
 
   if (currentTime - lastPrintTime >= PRINT_INTERVAL_US)
