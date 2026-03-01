@@ -5,6 +5,7 @@
 #include "madwick_1axis.h"
 #include "PID.h"
 #include "sbus.h"
+#include "RobotState.h"
 
 // ESPr Developer S3 向けのピン設定
 #define SPI_SCK 12
@@ -25,28 +26,31 @@ uint8_t MASTER_ID = 0x00;  // ESP32側のID (0x00などでOK)
 CyberGear *cybergear;
 
 // カスケードPIDコントローラーのインスタンス
-PID velocityPI(0.01f, 0.1f, 0.0f, 0.0f, -0.3f, 0.3f); // 入力速度のPI制御（目標速度 - 実測速度）用，出力目標角度制限は±45度（0.785 rad/s）程度を想定
-PID posturePD(125.0f, 0.0f, 0.05f, 0.0f, -30.0f, 30.0f);  // 姿勢制御用のPDコントローラー（目標角度 - 実測角度）用，直接IMUの角度微分をD項に使用するため不完全微分は不要、出力は速度指令なので±30 rad/s程度を想定
+PID velocityPI(0.01f, 0.1f, 0.0f, 0.0f, -0.3f, 0.3f);    // 入力速度のPI制御（目標速度 - 実測速度）用，出力目標角度制限は±45度（0.785 rad/s）程度を想定
+PID posturePD(125.0f, 0.0f, 0.05f, 0.0f, -30.0f, 30.0f); // 姿勢制御用のPDコントローラー（目標角度 - 実測角度）用，直接IMUの角度微分をD項に使用するため不完全微分は不要、出力は速度指令なので±30 rad/s程度を想定
 
 // ICM42688センサーのインスタンス
 ICM42688 IMU(SPI, IMU_CS_PIN);
 Madgwick1Axis madwickFilter(0.3f, 1.0f / 0.9935f); // フィルタゲイン0.3, 加速度スケール補正
 
 // === 調整可能なパラメータ ===
-const float INITIAL_WAIT_SEC = 8.0;                    // 制御開始前の待ち時間（秒）
-const unsigned long SPEED_UPDATE_INTERVAL_US = 2500;   // 速度更新間隔（マイクロ秒）10ms=10000us
-const unsigned long STATUS_REQUEST_INTERVAL_US = 2500; // ステータス要求間隔（マイクロ秒）10ms=10000us
-const unsigned long IMU_UPDATE_INTERVAL_US = 1000;     // IMU読み取り間隔（マイクロ秒）10ms=10000us
-const unsigned long PRINT_INTERVAL_US = 100000;        // データ出力間隔（マイクロ秒）10ms=10000us
-const float FORWARD_COMMAND_SCALE = 1.0f;              // 前後の指令のスケーリング係数,m/s
-const float TURN_COMMAND_SCALE = 4.0f;                 // 左右の指令のスケーリング係数,rad/s
-const float WHEEL_BASE = 0.1772f;                      // 車輪間距離（m）
-const float WHEEL_RADIUS = 0.108f;                     // 車輪半径（m）
+const float INITIAL_WAIT_SEC = 8.0;                                    // 制御開始前の待ち時間（秒）
+const unsigned long SPEED_UPDATE_INTERVAL_US = 2500;                   // 速度更新間隔（マイクロ秒）10ms=10000us
+const unsigned long STATUS_REQUEST_INTERVAL_US = 2500;                 // ステータス要求間隔（マイクロ秒）10ms=10000us
+const float MOTOR_UPDATE_DT = STATUS_REQUEST_INTERVAL_US / 1000000.0f; // モーター更新の周期（秒）
+const unsigned long IMU_UPDATE_INTERVAL_US = 1000;                     // IMU読み取り間隔（マイクロ秒）10ms=10000us
+const unsigned long PRINT_INTERVAL_US = 100000;                        // データ出力間隔（マイクロ秒）10ms=10000us
+const float FORWARD_COMMAND_SCALE = 1.0f;                              // 前後の指令のスケーリング係数,m/s
+const float TURN_COMMAND_SCALE = 4.0f;                                 // 左右の指令のスケーリング係数,rad/s
+const float WHEEL_BASE = 0.1772f;                                      // 車輪間距離（m）
+const float WHEEL_RADIUS = 0.108f;                                     // 車輪半径（m）
 
 /* SBUS object, reading SBUS */
 bfs::SbusRx sbus_rx(&Serial2, 6, 7, true);
 /* SBUS data */
 bfs::SbusData data;
+
+RobotState robotState;
 
 void setup()
 {
@@ -149,9 +153,6 @@ void loop()
     Serial.println("Motor Enabled!");
   }
 
-  // 受信したCANメッセージを処理
-  cybergear->process_can_message();
-
   // 指定間隔ごとにsin波/cos波で速度を更新
   if (currentTime - lastSpeedUpdateTime >= SPEED_UPDATE_INTERVAL_US)
   {
@@ -160,8 +161,8 @@ void loop()
     forward_velocity_command = FORWARD_COMMAND_SCALE * forward_command / WHEEL_RADIUS;           // 前後の指令を-1.0から1.0の範囲にマッピングしたものを速度指令に変換し，車輪半径で割って角速度指令に変換
     turn_velocity_command = TURN_COMMAND_SCALE * turn_command * WHEEL_BASE / (2 * WHEEL_RADIUS); // 左右の指令を-1.0から1.0の範囲にマッピングしたものを速度指令に変換し，車輪半径で割って角速度指令に変換
 
-    target_angle = velocityPI.update_pi(forward_velocity_command, cybergear->getSpeed(0), SPEED_UPDATE_INTERVAL_US / 1000000.0f);                     // 目標速度は0、実測速度はモーターから取得
-    target_speed = posturePD.update_pd_measurement_deriv(target_angle, madwickFilter.getAngle(), -IMU.gyrY(), SPEED_UPDATE_INTERVAL_US / 1000000.0f); // 目標角度 - 実測角度を入力、ジャイロの角速度をD項に使用
+    target_angle = velocityPI.update_pi(forward_velocity_command, robotState.getWheelSpeed(), SPEED_UPDATE_INTERVAL_US / 1000000.0f);                                                  // 目標速度は0、実測速度はモーターから取得
+    target_speed = posturePD.update_pd_measurement_deriv(target_angle, robotState.getPendulumAngle(), robotState.getPendulumAngularVelocity(), SPEED_UPDATE_INTERVAL_US / 1000000.0f); // 目標角度 - 実測角度を入力、ジャイロの角速度をD項に使用
 
     // 目標速度を設定 (最初のN秒間は指令を出さない)
     if (motorEnabled && enabled_motor_command)
@@ -185,6 +186,13 @@ void loop()
     cybergear->request_status(0);
     delayMicroseconds(250);
     cybergear->process_can_message();
+    delayMicroseconds(100);
+    // モーター2のステータスを要求
+    cybergear->request_status(1);
+    delayMicroseconds(250);
+    cybergear->process_can_message();
+
+    robotState.updateWheel((cybergear->getSpeed(0) - cybergear->getSpeed(1)) / 2.0f, MOTOR_UPDATE_DT); // 左右の車輪の速度から平均前進速度を計算して更新
   }
 
   // 指定間隔ごとにIMUデータを読み取って表示
@@ -197,6 +205,9 @@ void loop()
 
     // Madgwickフィルタを更新
     madwickFilter.update(IMU.accZ(), IMU.accX(), -IMU.gyrY(), currentTime);
+
+    robotState.updatePendulumAngle(madwickFilter.getAngle());
+    robotState.updatePendulumAngularVelocity(-IMU.gyrY());
   }
 
   if (sbus_rx.Read())
@@ -214,11 +225,11 @@ void loop()
     // 重力加速度から角度を計算する
 
     // angle, angular_velocity, motor_speed, target_angle, target_speed
-    Serial.print(madwickFilter.getAngle(), 3);
+    Serial.print(robotState.getPendulumAngle(), 3);
     Serial.print(", ");
-    Serial.print(-IMU.gyrY(), 3);
+    Serial.print(robotState.getPendulumAngularVelocity(), 3);
     Serial.print(", ");
-    Serial.print(cybergear->getSpeed(0), 3);
+    Serial.print(robotState.getWheelSpeed(), 3);
     Serial.print(", ");
     Serial.print(target_angle, 3);
     Serial.print(", ");
