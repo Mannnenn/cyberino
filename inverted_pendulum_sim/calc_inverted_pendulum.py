@@ -1,10 +1,10 @@
-import sympy as sp
-from sympy.physics.mechanics import *
+import matplotlib.pyplot as plt
 import numpy as np
 import scipy.constants as cnst
-from scipy.linalg import solve_continuous_are
+import sympy as sp
 from scipy.integrate import solve_ivp
-import matplotlib.pyplot as plt
+from scipy.linalg import solve_continuous_are
+from sympy.physics.mechanics import *
 from sympy.printing.numpy import NumPyPrinter
 
 init_vprinting()
@@ -152,16 +152,28 @@ A, B, inp_vec = LM.linearize(**kwargs)
 np.set_printoptions(formatter=None)
 
 # Pendulum
-_m = 1.50  # kg
-_l = 0.30  # m
-_J_p = _m * _l**2 / 3  # kgm^2
+_m = 1.268  # kg
+_l = 0.054  # m
+_J_p = 0.00694  # kgm^2
 _mu_p = 0.05  # N/(rad/s)
 
 # Wheel
-_M = 0.75  # kg
-_a = 0.10  # m
-_J_w = _M * _a**2 / 2  # kgm^2
+_M = 0.0636  # kg
+_a = 0.054  # m
+_J_w = 0.00014101  # kgm^2
 _mu_w = 0.05  # N/(rad/s)
+
+
+# Pendulum
+# _m = 1.50  # Mass of pendulum, kg
+# _l = 0.30  # Half length of pendulum, m
+# _J_p = _m * _l**2 / 3  # Inertia of pendulum
+# _mu_p = 0.05  # Friction of pendulum, N/(rad/s)
+# # Wheel
+# _M = 0.75  # Mass of wheel, kg
+# _a = 0.10  # Radius of wheel, m
+# _J_w = _M * _a**2 / 2  # Inertia of wheel, kg m**2
+# _mu_w = 0.05  # Friction of wheel, N/(rad/s)
 
 # Gravity
 _g = cnst.g  # m/s^2
@@ -280,6 +292,7 @@ print(f"State-feedback gain _F = \n{_F}\n")
 w_lqr, v_lqr = np.linalg.eig(_A + _B_c * _F)
 print(f"Eigenvalues of closed-loop system =\n{w_lqr}")
 
+
 # Non-liner
 def func(t, x):
     # Extract state variables
@@ -302,6 +315,7 @@ def func(t, x):
 
     # Return result
     return dxdt
+
 
 # ------------------------------------------------
 # Linearized state-space equation
@@ -349,6 +363,7 @@ def torque_control(t, x):
 
     return tau
 
+
 # ------------------------------------------------
 # Torque for control PID
 # ------------------------------------------------
@@ -379,6 +394,7 @@ def torque_control_PID(t, x):
 
     # 8.15993077 1.78704447 0.31622777 0.30764017
 
+
 # ------------------------------------------------
 # Disturbance force
 # ------------------------------------------------
@@ -394,6 +410,7 @@ def force_disturbance(t, x):
     # f_d = 0
 
     return f_d
+
 
 # ------------------------------------------------
 # Solution of non-lin. and lin dynamics by SciPy
@@ -450,8 +467,6 @@ for i, __t in enumerate(_t):
     _f_d_lin[i] = force_disturbance(__t, sol_lin.y[:, i])
 
 
-
-
 fig, axes = plt.subplots(4, 2, figsize=(14, 16))
 fig.suptitle("Non-linear vs Linear model comparison", fontsize=14)
 
@@ -505,7 +520,6 @@ plt.show()
 # NumPy用のPythonコードを生成
 
 
-
 # --- 追加・修正する処理 ---
 # 引数として使いたい「単なる変数」としてのシンボルを作成
 sym_theta = sp.Symbol("theta")
@@ -556,7 +570,6 @@ with open("generated_eq2_func.py", "w", encoding="utf-8") as f:
     f.write("import numpy\n\n")
     f.write("def func_eq2(theta, theta_dot, phi, phi_dot, tau, f_d):\n")
     f.write(f"    return {code_str}\n")
-
 
 
 # _Aと_Bを 'matrices.npz' という1つのファイルに保存
