@@ -2,7 +2,16 @@
 
 ## 📹 Demo - 実機動作の様子
 
-https://github.com/Mannnenn/cyberino/releases/download/v1.0-demo/demo.mp4
+<table>
+  <tr>
+    <td><strong>Cyberino がバランスを保ちながら自動で動作する様子です。</strong></td>
+  </tr>
+  <tr>
+    <td>
+      <video src="https://github.com/Mannnenn/cyberino/releases/download/v1.0-demo/demo.mp4" width="400" controls></video>
+    </td>
+  </tr>
+</table>
 
 ---
 
