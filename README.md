@@ -347,7 +347,7 @@ uv sync
 
 ## 📄 License
 
-[Add license information if applicable]
+This package is released under the MIT license. 
 
 ---
 
