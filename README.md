@@ -1,5 +1,11 @@
 # Cyberino - Wheeled Inverted Pendulum Project
 
+## 📹 Demo - 実機動作の様子
+
+https://github.com/user-attachments/assets/demo-video
+
+---
+
 **Cyberino** is a complete robotics project combining embedded C++ firmware and Python simulation/control research for a two-wheeled inverted pendulum robot with advanced motor control, state estimation, and reinforcement learning capabilities.
 
 ## 📚 Project Overview
