@@ -2,7 +2,7 @@
 
 ## 📹 Demo - 実機動作の様子
 
-[https://github.com/user-attachments/assets/demo-video](https://github.com/Mannnenn/cyberino/releases/download/v1.0-demo/demo.mp4)
+https://github.com/Mannnenn/cyberino/releases/download/v1.0-demo/demo.mp4
 
 ---
 
